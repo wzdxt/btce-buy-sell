@@ -14,34 +14,23 @@ def run(key, secret):
 	print 'start running ...'
 	api = BTCEApi(key, secret)
 
-	look_sleep_time = 10
+	sleep_time = 10
 	
 	while True:
 		try:
-			cash = get_funds_and_orders(btce_strategy)
-			print_cash(cash)
-			has_cash = False
-			for item in strategy:
-				item_cash = cash[item]
-				if item_cash['cash'] > 0.01:
-					sell_item(item_cash)
-					has_cash = True
-			if has_cash:
-				cash = get_funds_and_orders(btce_strategy)
-			frozen_usd = 0
+			orders = get_my_orders(api, btce_strategy.keys())
+			# orders = {'eur':{'buying': xxx, 'selling': xxx}, ...}
+			funds = get_funds(api, btce_strategy.keys())
 			for item, content in strategy:
-				frozen_usd += get_usd(cash[item])
-			total_usd = cash['usd'] + frozen_usd
-			total_weight = 0
-			for content in btce_strategy.valus():
-				total_weight += content['weight']
-			alloc = {}
-
-			
-			
+				remain = content['alloc'] - orders[item]['buying'] + orders[item]['selling'] 
+				if remain > 1:
+					buy_item(item, content, remain)
+				if funds[item] > 1:
+					sell_item(item, content, funds[item])
+			time.sleep(sleep_time)
 		except Exception, e:
 			print 'exception:,', e
-			time.sleep(look_sleep_time)
+			time.sleep(sleep_time)
 
 def trade(api, pair, type, rate, amount):
 	if amount < 0.001:
@@ -59,11 +48,17 @@ def trade(api, pair, type, rate, amount):
 def get_time_str():
 	return time.strftime('%H:%M:%S', time.localtime(time.time()))
 
-def get_funds(api):
+def get_my_orders(api, items):
+	api.get
+
+def get_funds(api, items):
 	funds_tmp = api.get_info()['funds']
 	while funds_tmp is None:
+		print 'get funds fail, retry'
 		funds_tmp = api.get_info()['funds']
-	funds = make_simple_funds(funds_tmp)
+	funds = {}
+	for item in items:
+		funds[item] = funds_tmp[item]
 	print '[%s] %s' % (get_time_str(), funds)
 	return funds
 
