@@ -6,16 +6,20 @@ from __future__ import division
 import time
 import copy
 
-from strategy import init_strategy
+from strategy import init_strategy, StrategyManager
 from btceapi import BTCEApi
+from pricejudger import PriceJudger
 
 def run(key, secret):
 	print
 	print 'start running ...'
 
 	api = BTCEApi(key, secret)
+	sm = StrategyManager()
+	pj = PriceJudger()
 	sleep_time = 41
-	btce_strategy = copy.copy(init_strategy)
+	btce_strategy = sm.read_strategy()
+	sm.write_strategy(btce_strategy)
 	
 	if True:
 		try:
@@ -23,6 +27,11 @@ def run(key, secret):
 			print_my_orders(orders)
 			funds = get_funds(api, btce_strategy.keys())
 			for item, content in btce_strategy.items():
+				if not content['use']:
+					continue
+				if orders[item]['buying'] == 0 and orders[item]['selling'] == 0:
+					pj.make_strategy(content)
+					sm.write_strategy(btce_strategy)
 				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] 
 				if remain > 1:
 					buy_item(api, item, content, remain)
@@ -30,6 +39,7 @@ def run(key, secret):
 					sell_item(api, item, content, funds[item])
 			time.sleep(sleep_time)
 		except Exception, e:
+			raise e
 			print 'exception:,', e
 			time.sleep(sleep_time)
 
@@ -55,7 +65,8 @@ def sell_item(api, coin, strategy_content, amount):
 		trade(api, pair, 'buy', price, amount/price)
 
 def trade(api, pair, type, rate, amount):
-	amount = round(amount - 0.00000005, 8)
+	amount = round(amount - 0.000000005, 8)
+	rate = round(rate - 0.000005, 5)
 	if amount < 0.001:
 		print 'too smal amount:', amount
 		return None
@@ -93,7 +104,7 @@ def get_my_orders(api, strategy):
 			if order_content['type'] == 'sell':
 				my_orders[item]['buying'] += order_content['amount'] * order_content['rate']
 			else:
-				my_orders[item]['selling'] += order_content['amount'] / order_content['rate']
+				my_orders[item]['selling'] += order_content['amount'] * order_content['rate']
 	return my_orders
 
 def get_funds(api, items):
