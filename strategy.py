@@ -7,23 +7,25 @@
 # good get is 0.003
 # remember, fee is 0.998*0.998
 
-btce_strategy = {
+init_strategy = {
 	'eur': {
+		'pair' : 'eur_usd',
 		'reversed' : False,
-		'sell_price' : 1.2639,
-		'buy_price' : 1.25506,
+		'sell_price' : 1.2659,
+		'buy_price' : 1.25606,
 		'alloc' : 238,
 
 		'min_sell_price' : -1,
 		'max_buy_price' : -1,
 		'shreshold_amount' : 1500,
 	}, 'rur': {
+		'pair' : 'usd_rur',
 		'reversed' : True,
-		'sell_price' : 34.45999,
-		'buy_price' : 34.15003,
+		'sell_price' : 34.13998,
+		'buy_price' : 33.80003,
 		'alloc' : 5145,
 
 		'min_sell_price' : -1,
 		'max_buy_price' : -1,
 		'shreshold_amount' : 1500,
-	}
+	}}
