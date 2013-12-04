@@ -30,7 +30,7 @@ if __name__ == '__main__':
 	exchange_thread.setDaemon(True)
 	exchange_thread.start()
 
-	time.sleep(60*1)
+	time.sleep(60*3)
 	
 	python = sys.executable
 	os.execl(python, python, '-O', *sys.argv)

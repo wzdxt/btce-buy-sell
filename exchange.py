@@ -17,7 +17,7 @@ def run(key, secret):
 	api = BTCEApi(key, secret)
 	sm = StrategyManager()
 	pj = PriceJudger()
-	sleep_time = 41
+	sleep_time = 61 * 3
 	btce_strategy = sm.read_strategy()
 	sm.write_strategy(btce_strategy)
 	
@@ -29,9 +29,14 @@ def run(key, secret):
 			for item, content in btce_strategy.items():
 				if not content['use']:
 					continue
-				if orders[item]['buying'] == 0 and orders[item]['selling'] == 0:
-					pj.make_strategy(content)
-					sm.write_strategy(btce_strategy)
+				if content['dynamic']:
+					if orders[item]['buying'] > 0 and orders[item]['selling'] == 0:
+						print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
+						cancel_buy_order(api, content['pair'], content['reversed'])
+						orders[item]['buying'] = 0
+					if orders[item]['buying'] == 0 and orders[item]['selling'] == 0:
+						pj.make_strategy(content)
+						sm.write_strategy(btce_strategy)
 				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] 
 				if remain > 1:
 					buy_item(api, item, content, remain)
@@ -106,6 +111,18 @@ def get_my_orders(api, strategy):
 			else:
 				my_orders[item]['selling'] += order_content['amount'] * order_content['rate']
 	return my_orders
+
+def cancel_buy_order(api, pair, reversed):
+	orders = api.get_order_list()
+	if not reversed:
+		type = 'buy'
+	else:
+		type = 'sell'
+	for order_id, order_content in orders.items():
+		if order_content['pair'] == pair and order_content['type'] == type:
+			print '[%s] cancel order %s' % (get_time_str(), order_id)
+			api.cancel_order(order_id)
+			print '[%s] canceled' % (get_time_str())
 
 def get_funds(api, items):
 	funds_tmp = api.get_info()['funds']
