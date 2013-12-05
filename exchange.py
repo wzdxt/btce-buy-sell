@@ -10,6 +10,8 @@ from strategy import init_strategy, StrategyManager
 from btceapi import BTCEApi
 from pricejudger import PriceJudger
 
+real_trade = False
+
 def run(key, secret):
 	print
 	print 'start running ...'
@@ -18,6 +20,7 @@ def run(key, secret):
 	sm = StrategyManager()
 	pj = PriceJudger()
 	sleep_time = 61 * 3
+	order_number = 20
 	btce_strategy = sm.read_strategy()
 	sm.write_strategy(btce_strategy)
 	
@@ -30,18 +33,25 @@ def run(key, secret):
 				if not content['use']:
 					continue
 				if content['dynamic']:
+					new_content = copy.deepcopy(content)
+					pj.make_strategy(new_content)
 					if orders[item]['buying'] > 0 and orders[item]['selling'] == 0:
-						print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
-						cancel_buy_order(api, content['pair'], content['reversed'])
-						orders[item]['buying'] = 0
+						delta = abs(orders[item]['buy_price'] / new_content['buy_price'] - 1)
+						if delta > 0.001:
+							print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
+							cancel_buy_order(api, content['pair'], content['reversed'])
+							orders[item]['buying'] = 0
 					if orders[item]['buying'] == 0 and orders[item]['selling'] == 0:
-						pj.make_strategy(content)
+						content = new_content
+						btce_strategy[item] = new_content
 						sm.write_strategy(btce_strategy)
 				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] 
-				if remain > 1:
-					buy_item(api, item, content, remain)
 				if funds[item] > 1:
-					sell_item(api, item, content, funds[item])
+					for i in range(0, order_number):
+						sell_item(api, item, content, funds[item]/order_number, (i - order_number//2)/100000)
+				elif orders[item]['selling'] == 0 and remain > 1:
+					for i in range(0, order_number):
+						buy_item(api, item, content, remain/order_number, (i - order_number//2)/100000)
 			time.sleep(sleep_time)
 		except Exception, e:
 			raise e
@@ -51,23 +61,23 @@ def run(key, secret):
 def print_my_orders(orders):
 	print '[%s] orders: %s' % (get_time_str(), orders)
 
-def buy_item(api, coin, strategy_content, amount):
+def buy_item(api, coin, strategy_content, amount, price_fix=0):
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['buy_price']
-		trade(api, pair, 'buy', price, amount)
+		trade(api, pair, 'buy', price + price_fix, amount)
 	else:
 		price = strategy_content['sell_price']
-		trade(api, pair, 'sell', price, amount/price)
+		trade(api, pair, 'sell', price + price_fix, amount/price)
 
-def sell_item(api, coin, strategy_content, amount):
+def sell_item(api, coin, strategy_content, amount, price_fix=0):
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['sell_price']
-		trade(api, pair, 'sell', price, amount)
+		trade(api, pair, 'sell', price + price_fix, amount)
 	else:
 		price = strategy_content['buy_price']
-		trade(api, pair, 'buy', price, amount/price)
+		trade(api, pair, 'buy', price + price_fix, amount/price)
 
 def trade(api, pair, type, rate, amount):
 	amount = round(amount - 0.000000005, 8)
@@ -76,7 +86,7 @@ def trade(api, pair, type, rate, amount):
 		print 'too smal amount:', amount
 		return None
 	print '[%s] %s %s in %s, amount: %s' % (get_time_str(), type, pair, rate, amount)
-	if True:
+	if real_trade:
 		res = api.trade(pair, type, rate, amount)
 		if res is None:
 			print '[%s] make order fail' % get_time_str()
@@ -93,6 +103,8 @@ def get_my_orders(api, strategy):
 	for item in strategy.keys():
 		my_orders[item] = {'selling':0, 'buying':0}
 	orders = api.get_order_list()
+	if orders is None:
+		return my_orders
 	for order_content in orders.values():
 		if order_content['pair'][:3] in strategy.keys():
 			item = order_content['pair'][:3]
@@ -103,14 +115,24 @@ def get_my_orders(api, strategy):
 		if not strategy[item]['reversed']:
 			if order_content['type'] == 'sell':
 				my_orders[item]['selling'] += order_content['amount']
+				set_price(my_orders[item], 'sell_price', order_content['rate'])
 			else:
 				my_orders[item]['buying'] += order_content['amount']
+				set_price(my_orders[item], 'buy_price', order_content['rate'])
 		else:
 			if order_content['type'] == 'sell':
 				my_orders[item]['buying'] += order_content['amount'] * order_content['rate']
+				set_price(my_orders[item], 'buy_price', order_content['rate'])
 			else:
 				my_orders[item]['selling'] += order_content['amount'] * order_content['rate']
+				set_price(my_orders[item], 'sell_price', order_content['rate'])
 	return my_orders
+
+def set_price(my_order, type, rate):
+	if type not in my_order:
+		my_order[type] = rate
+	else:
+		my_order[type] = (my_order[type] + rate)/2
 
 def cancel_buy_order(api, pair, reversed):
 	orders = api.get_order_list()
@@ -119,10 +141,11 @@ def cancel_buy_order(api, pair, reversed):
 	else:
 		type = 'sell'
 	for order_id, order_content in orders.items():
-		if order_content['pair'] == pair and order_content['type'] == type:
-			print '[%s] cancel order %s' % (get_time_str(), order_id)
-			api.cancel_order(order_id)
-			print '[%s] canceled' % (get_time_str())
+		if real_trade:
+			if order_content['pair'] == pair and order_content['type'] == type:
+				print '[%s] cancel order %s' % (get_time_str(), order_id)
+				api.cancel_order(order_id)
+				print '[%s] canceled' % (get_time_str())
 
 def get_funds(api, items):
 	funds_tmp = api.get_info()['funds']
