@@ -13,7 +13,7 @@ class PriceJudger():
 			'eur_usd' : 20,
 			'usd_rur' : 18,
 		}
-		self.headers = { 'accept-encoding': 'gzip,deflate,sdch', 'accept': 'application/json, text/javascript, */*; q=0.01', 'cookie':'__cfduid=dd90c2e3e9bb7bdb3cd5198be8f5dbe791384870170571; chatRefresh=0; a=e875cef56d27a5edf018a9bca35c9dbf; locale=cn; SESS_ID=moitkk2hrnbccvs6592ef0j73qkbnoq6; auth=1; bId=51LYEP9S3DYQH1O5OV3Y9FMQP1BIZHTW; __utma=45868663.1586475762.1384870193.1386084811.1386162246.36; __utmb=45868663.3.10.1386162246; __utmc=45868663; __utmz=45868663.1384870193.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',}
+		self.headers = { 'accept-encoding': 'gzip,deflate,sdch', 'accept': 'application/json, text/javascript, */*; q=0.01', 'cookie':'__cfduid=d9d48fae37e212dafd4c74db9098aaf481386120213506; a=ea303c77eb85ca780dd46bfe0083dfd5; chatRefresh=1; locale=cn; SESS_ID=cmhsgclf82lfbqoek1k35nfiok21p7t8; auth=1; bId=EPROE7PCUF83Y25ZYNWIJPWURCPJSU01; __utma=45868663.2004476832.1386120215.1386231714.1386293090.13; __utmb=45868663.10.10.1386293090; __utmc=45868663; __utmz=45868663.1386120215.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',}
 
 	def get_m30_k_line(self, pair):
 		conn = httplib.HTTPSConnection('btc-e.com')
@@ -45,6 +45,14 @@ class PriceJudger():
 			low_price.sort()
 		return (high_price, low_price)
 
+	def get_price_by_index(self, k_line, index, sort=True):
+		price = []
+		for item in k_line:
+			price.append(item[index])
+		if sort:
+			price.sort()
+		return price
+
 	def get_price(self, k_line, pair, percent):
 		(high_price, low_price) = self.get_high_and_low_price(k_line)
 		line_len = len(high_price)
@@ -58,11 +66,11 @@ class PriceJudger():
 		k_line = self.get_m30_k_line(strategy_content['pair'])
 		del k_line[-1]
 		flex_price = self.get_flex_price(k_line, strategy_content['pair'])
-		extrem_price = self.get_extrem_price(k_line, strategy_content['pair'])
 		strategy_content['sell_price'] = flex_price[0]
 		strategy_content['buy_price'] = flex_price[1]
-		strategy_content['min_sell_price'] = extrem_price[0]
-		strategy_content['max_buy_price'] = extrem_price[1]
+#		extrem_price = self.get_extrem_price(k_line, strategy_content['pair'])
+#		strategy_content['min_sell_price'] = extrem_price[0]
+#		strategy_content['max_buy_price'] = extrem_price[1]
 #		if (extrem_price[0] * 0.998 * 0.998)/extrem_price[1] - 1 < 0.001:
 #			strategy_content['use'] = False
 #			return
@@ -72,7 +80,8 @@ class PriceJudger():
 	
 	def __make_price_reasonable(self, k_line, strategy_content):
 		part_line = k_line[-5:]
-		(high_price, low_price) = self.get_high_and_low_price(part_line)
+		low_price = self.get_price_by_index(part_line, 1)
+		high_price = self.get_price_by_index(part_line, 2)
 		high_price = high_price[1:-1]
 		low_price = low_price[1:-1]
 		strategy_content['sell_price'] = (strategy_content['sell_price'] + sum(high_price)/len(high_price))/2
@@ -82,6 +91,12 @@ class PriceJudger():
 			print 'stop %s, for %s, benefit=%s' % \
 				(strategy_content['pair'], (strategy_content['sell_price'], strategy_content['buy_price']), benefit)
 			strategy_content['use'] = False
+		if not strategy_content['reversed']:
+			if strategy_content['buy_price'] > strategy_content['max_buy_price']:
+				strategy_content['use'] = False
+		else:
+			if strategy_content['sell_price'] < strategy_content['min_sell_price']:
+				strategy_content['use'] = False
 
 if __name__ == '__main__':
 	pj = PriceJudger()

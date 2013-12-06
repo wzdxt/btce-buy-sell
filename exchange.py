@@ -5,12 +5,13 @@ from __future__ import division
 
 import time
 import copy
+import random
 
 from strategy import init_strategy, StrategyManager
 from btceapi import BTCEApi
 from pricejudger import PriceJudger
 
-real_trade = False
+real_trade = True
 
 def run(key, secret):
 	print
@@ -36,7 +37,11 @@ def run(key, secret):
 					new_content = copy.deepcopy(content)
 					pj.make_strategy(new_content)
 					if orders[item]['buying'] > 0 and orders[item]['selling'] == 0:
-						delta = abs(orders[item]['buy_price'] / new_content['buy_price'] - 1)
+						if not new_content['reversed']:
+							new_price = new_content['buy_price']
+						else:
+							new_price = new_content['sell_price']
+						delta = abs(orders[item]['buy_price'] / new_price - 1)
 						if delta > 0.001:
 							print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
 							cancel_buy_order(api, content['pair'], content['reversed'])
@@ -46,12 +51,23 @@ def run(key, secret):
 						btce_strategy[item] = new_content
 						sm.write_strategy(btce_strategy)
 				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] 
-				if funds[item] > 1:
-					for i in range(0, order_number):
-						sell_item(api, item, content, funds[item]/order_number, (i - order_number//2)/100000)
-				elif orders[item]['selling'] == 0 and remain > 1:
-					for i in range(0, order_number):
-						buy_item(api, item, content, remain/order_number, (i - order_number//2)/100000)
+				if content['use']:
+					if funds[item] > 1:
+						count = funds[item]
+						for i in range(0, order_number - 1):
+							c = random.random() + 0.5
+							count -= funds[item]/order_number * c
+							sell_item(api, item, content, funds[item]/order_number * c, (i - order_number//2)/100000)
+						sell_item(api, item, content, count, (order_number - 1 - order_number//2)/100000)
+					elif orders[item]['selling'] == 0 and remain > 1:
+						count = remain
+						for i in range(0, order_number - 1):
+							c = random.random() + 0.5
+							count -= remain/order_number * c
+							buy_item(api, item, content, remain/order_number * c, (i - order_number//2)/100000)
+						buy_item(api, item, content, count, (order_number - 1 - order_number//2)/100000)
+				else:
+					cancel_buy_order(api, content['pair'], content['reversed'])
 			time.sleep(sleep_time)
 		except Exception, e:
 			raise e
@@ -62,6 +78,7 @@ def print_my_orders(orders):
 	print '[%s] orders: %s' % (get_time_str(), orders)
 
 def buy_item(api, coin, strategy_content, amount, price_fix=0):
+	price_fix = price_fix + random.randint(-3, 3)/100000
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['buy_price']
@@ -71,6 +88,7 @@ def buy_item(api, coin, strategy_content, amount, price_fix=0):
 		trade(api, pair, 'sell', price + price_fix, amount/price)
 
 def sell_item(api, coin, strategy_content, amount, price_fix=0):
+	price_fix = price_fix + random.randint(-3, 3)/100000
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['sell_price']
@@ -133,6 +151,7 @@ def set_price(my_order, type, rate):
 		my_order[type] = rate
 	else:
 		my_order[type] = (my_order[type] + rate)/2
+	my_order[type] = round(my_order[type], 9)
 
 def cancel_buy_order(api, pair, reversed):
 	orders = api.get_order_list()
