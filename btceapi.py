@@ -7,6 +7,15 @@ import hashlib
 import hmac
 import urllib
 import time
+import copy
+
+basic_headers = {
+	'accept-encoding': 'gzip,deflate,sdch',
+	'accept-language': 'zh-CN,zh;q=0.8,en-US;q=0.6,en;q=0.4',
+	'ser-agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36',
+	'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+	'cache-control': 'max-age=0',
+	'cookie': '__cfduid=dd90c2e3e9bb7bdb3cd5198be8f5dbe791384870170571; a=e875cef56d27a5edf018a9bca35c9dbf; chatRefresh=1; locale=cn; SESS_ID=7kih3i16d77fjpslu5paonk3btf0j60o; auth=1; bId=RQ8PDX0RXOYGDACM4G95NGHQAP7SMR6M; __utma=45868663.1586475762.1384870193.1386490191.1386493983.57; __utmb=45868663.19.10.1386493983; __utmc=45868663; __utmz=45868663.1384870193.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)'}
 
 class BTCEApi():
 	nonce = int(time.time())
@@ -32,8 +41,9 @@ class BTCEApi():
 		BTCEApi.nonce = nonce
 	
 	def __send_public_request(self, pair, item):
-		conn = httplib.HTTPSConnection('btc-e.com', timeout = 10)
-		conn.request('GET', '%s/%s/%s' % (self.public_api, pair, item))
+		headers = copy.copy(basic_headers)
+		conn = httplib.HTTPSConnection('btc-e.com', timeout = 15)
+		conn.request('GET', '%s/%s/%s' % (self.public_api, pair, item), headers=headers)
 		response = conn.getresponse()
 		if response.status == 200:
 			resp_dict = json.loads(response.read())
@@ -84,7 +94,7 @@ class BTCEApi():
 			sign = self.__get_hashed_params(encoded_params)
 			headers = {'Sign' : sign, 'Key' : self.key, 'Content-type': 'application/x-www-form-urlencoded'}
 
-			conn = httplib.HTTPSConnection('btc-e.com', timeout = 10)
+			conn = httplib.HTTPSConnection('btc-e.com', timeout = 15)
 			conn.request('POST', '/tapi', encoded_params, headers)
 			response = conn.getresponse()
 

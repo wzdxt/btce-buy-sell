@@ -63,6 +63,7 @@ class PriceJudger():
 		return res
 
 	def make_strategy(self, strategy_content):
+		print 'new strategy for', strategy_content['pair']
 		k_line = self.get_m30_k_line(strategy_content['pair'])
 		del k_line[-1]
 		flex_price = self.get_flex_price(k_line, strategy_content['pair'])
@@ -75,7 +76,6 @@ class PriceJudger():
 #			strategy_content['use'] = False
 #			return
 		self.__make_price_reasonable(k_line, strategy_content)
-		print 'new strategy for', strategy_content['pair']
 		print strategy_content
 	
 	def __make_price_reasonable(self, k_line, strategy_content):
@@ -88,15 +88,21 @@ class PriceJudger():
 		strategy_content['buy_price'] = (strategy_content['buy_price'] + sum(low_price)/len(low_price))/2
 		benefit = strategy_content['sell_price'] *0.998*0.998 / strategy_content['buy_price'] - 1
 		if benefit < 0.001:
-			print 'stop %s, for %s, benefit=%s' % \
+			print 'bad situation of %s, for %s, benefit=%s' % \
 				(strategy_content['pair'], (strategy_content['sell_price'], strategy_content['buy_price']), benefit)
-			strategy_content['use'] = False
+			if not strategy_content['reversed']:
+				strategy_content['sell_price'] = strategy_content['sell_price'] * 0.999
+				strategy_content['buy_price'] = strategy_content['sell_price']*0.998*0.998 * 0.999
+			else:
+				strategy_content['buy_price'] = strategy_content['buy_price'] / 0.999
+				strategy_content['sell_price'] = strategy_content['buy_price']/0.998/0.998 / 0.999
+			print 'change price to', (strategy_content['sell_price'], strategy_content['buy_price'])
 		if not strategy_content['reversed']:
 			if strategy_content['buy_price'] > strategy_content['max_buy_price']:
-				strategy_content['use'] = False
+				strategy_content['skip'] = True
 		else:
 			if strategy_content['sell_price'] < strategy_content['min_sell_price']:
-				strategy_content['use'] = False
+				strategy_content['skip'] = True
 
 if __name__ == '__main__':
 	pj = PriceJudger()

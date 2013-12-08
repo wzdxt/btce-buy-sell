@@ -21,7 +21,7 @@ def run(key, secret):
 	sm = StrategyManager()
 	pj = PriceJudger()
 	sleep_time = 61 * 3
-	order_number = 20
+	order_number = 5
 	btce_strategy = sm.read_strategy()
 	sm.write_strategy(btce_strategy)
 	
@@ -33,24 +33,28 @@ def run(key, secret):
 			for item, content in btce_strategy.items():
 				if not content['use']:
 					continue
+				content['skip'] = False
 				if content['dynamic']:
 					new_content = copy.deepcopy(content)
 					pj.make_strategy(new_content)
-					if orders[item]['buying'] > 0 and orders[item]['selling'] == 0:
-						if not new_content['reversed']:
-							new_price = new_content['buy_price']
-						else:
-							new_price = new_content['sell_price']
-						delta = abs(orders[item]['buy_price'] / new_price - 1)
-						if delta > 0.001:
-							print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
-							cancel_buy_order(api, content['pair'], content['reversed'])
-							orders[item]['buying'] = 0
-					if orders[item]['buying'] == 0 and orders[item]['selling'] == 0:
-						content = new_content
-						btce_strategy[item] = new_content
-						sm.write_strategy(btce_strategy)
-				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] 
+					if new_content['skip']:
+						print '[%s] skip %s, just sell' % (get_time_str(), content['pair'])
+					else:
+						if orders[item]['buying'] > 0 and orders[item]['selling'] == 0 and funds[item] < 1:
+							if not new_content['reversed']:
+								new_price = new_content['buy_price']
+							else:
+								new_price = new_content['sell_price']
+							delta = abs(orders[item]['buy_price'] / new_price - 1)
+							if delta > 0.001:
+								print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
+								cancel_buy_order(api, content['pair'], content['reversed'])
+								orders[item]['buying'] = 0
+						if orders[item]['buying'] == 0 and orders[item]['selling'] == 0 and funds[item] < 1:
+							content = new_content
+							btce_strategy[item] = new_content
+							sm.write_strategy(btce_strategy)
+				remain = content['alloc'] - orders[item]['buying'] - orders[item]['selling'] - funds[item]
 				if content['use']:
 					if funds[item] > 1:
 						count = funds[item]
@@ -59,7 +63,7 @@ def run(key, secret):
 							count -= funds[item]/order_number * c
 							sell_item(api, item, content, funds[item]/order_number * c, (i - order_number//2)/100000)
 						sell_item(api, item, content, count, (order_number - 1 - order_number//2)/100000)
-					elif orders[item]['selling'] == 0 and remain > 1:
+					elif orders[item]['selling'] == 0 and funds[item] < 1 and remain > 1 and not new_content['skip']:
 						count = remain
 						for i in range(0, order_number - 1):
 							c = random.random() + 0.5

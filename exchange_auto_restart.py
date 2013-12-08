@@ -16,12 +16,15 @@ def test_thread(key, secret):
 		time.sleep(1.1)
 
 def exchange_thread(key, secret):
+	sleep_time = 3
 	while True:
 		try:
 			exchange.run(key, secret)
 		except Exception, e:
 			print 'xxx catch exception in auto shell xxx'
 			print e
+			time.sleep(sleep_time)
+			sleep_time += 3
 
 if __name__ == '__main__':
 	import key
@@ -30,7 +33,9 @@ if __name__ == '__main__':
 	exchange_thread.setDaemon(True)
 	exchange_thread.start()
 
-	time.sleep(60*3)
+	time.sleep(60*1)
+	
+	print 'totally restart'
 	
 	python = sys.executable
 	os.execl(python, python, '-O', *sys.argv)
