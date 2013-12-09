@@ -63,7 +63,8 @@ def run(key, secret):
 							count -= funds[item]/order_number * c
 							sell_item(api, item, content, funds[item]/order_number * c, (i - order_number//2)/100000)
 						sell_item(api, item, content, count, (order_number - 1 - order_number//2)/100000)
-					elif orders[item]['selling'] == 0 and funds[item] < 1 and remain > 1 and not new_content['skip']:
+					#elif orders[item]['selling'] == 0 and funds[item] < 1 and remain > 1 and not new_content['skip']:
+					elif remain > 1 and not new_content['skip']:
 						count = remain
 						for i in range(0, order_number - 1):
 							c = random.random() + 0.5
