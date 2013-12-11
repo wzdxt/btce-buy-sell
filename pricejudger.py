@@ -68,22 +68,35 @@ class PriceJudger():
 			print 'high price: %s, low price: %s, benefit: %s' % (res[0], res[1], benefit)
 		return res
 	
-	def make_strategy(self, strategy_content):
+	def make_strategy(self, api, strategy_content, my_order):
 		print 'new strategy for', strategy_content['pair']
 		k_line = self.get_m30_k_line(strategy_content['pair'])
 		del k_line[-1]
+
+		old_buy_price = strategy_content['buy_price']
+		old_sell_price = strategy_content['sell_price']
+		buying_amount = my_order['buying']
+		selling_amount = my_order['buying']
+
+		self.__make_flex_price(k_line, strategy_content)
+		self.__make_price_reasonable(k_line, strategy_content)
+		self.__check_with_others(api, strategy_content, buying_amount, old_buy_price, selling_amount, old_sell_price)
+		self.__validate(strategy_content)
+		print strategy_content
+
+	def __make_flex_price(self, k_line, strategy_content):
 		flex_price = self.get_flex_price(k_line, strategy_content['pair'], strategy_content['rate'])
 		strategy_content['sell_price'] = flex_price[0]
 		strategy_content['buy_price'] = flex_price[1]
-#		extrem_price = self.get_extrem_price(k_line, strategy_content['pair'], strategy_content['rate'])
-#		strategy_content['min_sell_price'] = extrem_price[0]
-#		strategy_content['max_buy_price'] = extrem_price[1]
-#		if (extrem_price[0] * strategy_content['rate']**2)/extrem_price[1] - 1 < 0.001:
-#			strategy_content['use'] = False
-#			return
-		self.__make_price_reasonable(k_line, strategy_content)
-		print strategy_content
-	
+		
+	def __validate(self, strategy_content):
+		if not strategy_content['reversed']:
+			if strategy_content['buy_price'] > strategy_content['max_buy_price']:
+				strategy_content['skip'] = True
+		else:
+			if strategy_content['sell_price'] < strategy_content['min_sell_price']:
+				strategy_content['skip'] = True
+		
 	def __make_price_reasonable(self, k_line, strategy_content):
 		part_line = k_line[-5:]
 		low_price = self.get_price_by_index(part_line, 0)
@@ -103,12 +116,37 @@ class PriceJudger():
 				strategy_content['buy_price'] = strategy_content['buy_price'] / 0.999
 				strategy_content['sell_price'] = strategy_content['buy_price']/strategy_content['rate']**2 / 0.999
 			print 'change price to', (strategy_content['sell_price'], strategy_content['buy_price'])
+
+	def __check_with_others(self, api, strategy_content, buying_amount, old_buy_price, selling_amount, old_sell_price):
+		depth = api.get_depth(strategy_content['pair'])
 		if not strategy_content['reversed']:
-			if strategy_content['buy_price'] > strategy_content['max_buy_price']:
-				strategy_content['skip'] = True
+			count = 0
+			bids = depth['bids']
+			for (price, amount) in bids:
+				count += amount
+				if price == old_buy_price:
+					count -= buying_amount
+				if count > strategy_content['threshold_amount']:
+					break;
+			price += 0.0001
+			if price < strategy_content['buy_price']:
+				print 'strategy change by others'
+				strategy_content['sell_price'] -= strategy_content['buy_price'] - price
+				strategy_content['buy_price'] = price
 		else:
-			if strategy_content['sell_price'] < strategy_content['min_sell_price']:
-				strategy_content['skip'] = True
+			count = 0
+			asks = depth['asks']
+			for (price, amount) in asks:
+				count += amount
+				if price == old_sell_price:
+					count -= selling_amount
+				if count > strategy_content['threshold_amount']:
+					break;
+			price -= 0.0001
+			if price > strategy_content['sell_price']:
+				print 'strategy change by others'
+				strategy_content['buy_price'] += price - strategy_content['sell_price']
+				strategy_content['sell_price'] = price
 
 if __name__ == '__main__':
 	pj = PriceJudger()

@@ -11,7 +11,7 @@ from strategy import init_strategy, StrategyManager
 from btceapi import BTCEApi
 from pricejudger import PriceJudger
 
-real_trade = False
+real_trade = True
 
 def run(key, secret):
 	print
@@ -36,17 +36,16 @@ def run(key, secret):
 				content['skip'] = False
 				new_content = copy.deepcopy(content)
 				if content['dynamic']:
-					pj.make_strategy(new_content)
+					pj.make_strategy(api, new_content, orders[item])
 					if new_content['skip']:
 						print '[%s] skip %s, just sell' % (get_time_str(), content['pair'])
 					else:
 						if orders[item]['buying'] > 0 and orders[item]['selling'] == 0 and funds[item] < 1:
 							if not new_content['reversed']:
-								new_price = new_content['buy_price']
+								delta = abs(content['buy_price'] / new_content['buy_price'] - 1)
 							else:
-								new_price = new_content['sell_price']
-							delta = abs(orders[item]['buy_price'] / new_price - 1)
-							if delta > 0.001:
+								delta = abs(content['sell_price'] / new_content['sell_price'] - 1)
+							if delta > 0.000001:
 								print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
 								cancel_buy_order(api, content['pair'], content['reversed'])
 								orders[item]['buying'] = 0
@@ -138,17 +137,17 @@ def get_my_orders(api, strategy):
 		if not strategy[item]['reversed']:
 			if order_content['type'] == 'sell':
 				my_orders[item]['selling'] += order_content['amount']
-				set_price(my_orders[item], 'sell_price', order_content['rate'])
+#				set_price(my_orders[item], 'sell_price', order_content['rate'])
 			else:
 				my_orders[item]['buying'] += order_content['amount']
-				set_price(my_orders[item], 'buy_price', order_content['rate'])
+#				set_price(my_orders[item], 'buy_price', order_content['rate'])
 		else:
 			if order_content['type'] == 'sell':
 				my_orders[item]['buying'] += order_content['amount'] * order_content['rate']
-				set_price(my_orders[item], 'buy_price', order_content['rate'])
+#				set_price(my_orders[item], 'buy_price', order_content['rate'])
 			else:
 				my_orders[item]['selling'] += order_content['amount'] * order_content['rate']
-				set_price(my_orders[item], 'sell_price', order_content['rate'])
+#				set_price(my_orders[item], 'sell_price', order_content['rate'])
 	return my_orders
 
 def set_price(my_order, type, rate):

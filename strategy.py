@@ -22,7 +22,7 @@ init_strategy = {
 
 		'min_sell_price' : -1,
 		'max_buy_price' : -1,
-		'shreshold_amount' : 1500,
+		'threshold_amount' : 1500,
 	}, 'rur': {
 		'pair' : 'usd_rur',
 		'reversed' : True,
@@ -35,7 +35,7 @@ init_strategy = {
 
 		'min_sell_price' : -1,
 		'max_buy_price' : -1,
-		'shreshold_amount' : 1500,
+		'threshold_amount' : 1500,
 	}}
 
 class StrategyManager():

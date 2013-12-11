@@ -43,7 +43,7 @@ class BTCEApi():
 	def __send_public_request(self, pair, item):
 		headers = copy.copy(basic_headers)
 		conn = httplib.HTTPSConnection('btc-e.com', timeout = 15)
-		conn.request('GET', '%s/%s/%s' % (self.public_api, pair, item), headers=headers)
+		conn.request('GET', '%s/%s/%s' % (self.public_api, pair, item))
 		response = conn.getresponse()
 		if response.status == 200:
 			resp_dict = json.loads(response.read())
