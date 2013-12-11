@@ -11,7 +11,7 @@ from strategy import init_strategy, StrategyManager
 from btceapi import BTCEApi
 from pricejudger import PriceJudger
 
-real_trade = True
+real_trade = False
 
 def run(key, secret):
 	print
@@ -34,8 +34,8 @@ def run(key, secret):
 				if not content['use']:
 					continue
 				content['skip'] = False
+				new_content = copy.deepcopy(content)
 				if content['dynamic']:
-					new_content = copy.deepcopy(content)
 					pj.make_strategy(new_content)
 					if new_content['skip']:
 						print '[%s] skip %s, just sell' % (get_time_str(), content['pair'])
@@ -105,10 +105,10 @@ def sell_item(api, coin, strategy_content, amount, price_fix=0):
 def trade(api, pair, type, rate, amount):
 	amount = round(amount - 0.000000005, 8)
 	rate = round(rate - 0.000005, 5)
-	if amount < 0.001:
+	print '[%s] %s %s in %s, amount: %s' % (get_time_str(), type, pair, rate, amount)
+	if amount < 0.1:
 		print 'too smal amount:', amount
 		return None
-	print '[%s] %s %s in %s, amount: %s' % (get_time_str(), type, pair, rate, amount)
 	if real_trade:
 		res = api.trade(pair, type, rate, amount)
 		if res is None:
