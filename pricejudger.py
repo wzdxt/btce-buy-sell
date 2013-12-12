@@ -117,10 +117,14 @@ class PriceJudger():
 	def __validate(self, strategy_content):
 		if not strategy_content['reversed']:
 			if strategy_content['buy_price'] > strategy_content['max_buy_price']:
-				strategy_content['skip'] = True
+				strategy_content['sell_price'] -= strategy_content['buy_price'] - strategy_content['max_buy_price']
+				strategy_content['buy_price'] = strategy_content['max_buy_price']
+				print 'adjust by extreme price'
 		else:
 			if strategy_content['sell_price'] < strategy_content['min_sell_price']:
-				strategy_content['skip'] = True
+				strategy_content['buy_price'] += strategy_content['min_sell_price'] - strategy_content['sell_price']
+				strategy_content['sell_price'] = strategy_content['min_sell_price']
+				print 'adjust by extreme price'
 		
 	def __make_price_reasonable(self, k_line, strategy_content):
 		part_line = k_line[-5:]
