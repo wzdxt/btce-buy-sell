@@ -114,6 +114,6 @@ class BTCEApi():
 			else:
 				print 'status:', response.status
 				print 'reason:', response.reason
-				return None
+				raise Exception('request error')
 		finally:
 			conn.close()

@@ -12,6 +12,7 @@ from btceapi import BTCEApi
 from pricejudger import PriceJudger
 
 real_trade = True
+enable_random_price = False
 
 def run(key, secret):
 	print
@@ -21,7 +22,7 @@ def run(key, secret):
 	sm = StrategyManager()
 	pj = PriceJudger()
 	sleep_time = 61 * 3
-	order_number = 5
+	order_number = 1
 	btce_strategy = sm.read_strategy()
 	sm.write_strategy(btce_strategy)
 	
@@ -29,6 +30,8 @@ def run(key, secret):
 		try:
 			orders = get_my_orders(api, btce_strategy)
 			print_my_orders(orders)
+			if orders is None:
+				raise Exception('get order error')
 			funds = get_funds(api, btce_strategy.keys())
 			for item, content in btce_strategy.items():
 				if not content['use']:
@@ -40,16 +43,22 @@ def run(key, secret):
 					if new_content['skip']:
 						print '[%s] skip %s, just sell' % (get_time_str(), content['pair'])
 					else:
-						if orders[item]['buying'] > 0 and orders[item]['selling'] == 0 and funds[item] < 1:
+						if orders[item]['buying'] > 0:
+						#if orders[item]['buying'] > 0 and orders[item]['selling'] == 0 and funds[item] < 1:
 							if not new_content['reversed']:
 								delta = abs(content['buy_price'] / new_content['buy_price'] - 1)
 							else:
 								delta = abs(content['sell_price'] / new_content['sell_price'] - 1)
-							if delta > 0.000001:
+							if delta > 1e-10:
 								print '[%s] cancel buy order for %s' % (get_time_str(), content['pair'])
 								cancel_buy_order(api, content['pair'], content['reversed'])
+								if not content['reversed']:
+									funds['usd'] += orders[item]['buying'] * content['buy_price']
+								else:
+									funds['usd'] += orders[item]['buying'] / content['sell_price']
 								orders[item]['buying'] = 0
-						if orders[item]['buying'] == 0 and orders[item]['selling'] == 0 and funds[item] < 1:
+						if orders[item]['buying'] == 0 and funds[item] < 1:
+						#if orders[item]['buying'] == 0 and orders[item]['selling'] == 0 and funds[item] < 1:
 							content = new_content
 							btce_strategy[item] = new_content
 							sm.write_strategy(btce_strategy)
@@ -82,7 +91,8 @@ def print_my_orders(orders):
 	print '[%s] orders: %s' % (get_time_str(), orders)
 
 def buy_item(api, coin, strategy_content, amount, price_fix=0):
-	price_fix = price_fix + random.randint(-3, 3)/100000
+	if enable_random_price:
+		price_fix = price_fix + random.randint(-3, 3)/100000
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['buy_price']
@@ -92,7 +102,8 @@ def buy_item(api, coin, strategy_content, amount, price_fix=0):
 		trade(api, pair, 'sell', price + price_fix, amount/price)
 
 def sell_item(api, coin, strategy_content, amount, price_fix=0):
-	price_fix = price_fix + random.randint(-3, 3)/100000
+	if enable_random_price:
+		price_fix = price_fix + random.randint(-3, 3)/100000
 	pair = strategy_content['pair']
 	if not strategy_content['reversed']:
 		price = strategy_content['sell_price']

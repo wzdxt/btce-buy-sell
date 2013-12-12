@@ -14,20 +14,45 @@ class PriceJudger():
 			'eur_usd' : 20,
 			'usd_rur' : 18,
 		}
-		self.headers = { 'accept-encoding': 'gzip,deflate,sdch', 'accept': 'application/json, text/javascript, */*; q=0.01', 'cookie': cookie, 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',}
+		self.headers = {
+		#	'origin': 'https://btc-e.com',
+		#	'x-requested-with': 'XMLHttpRequest',
+		#	'method': 'GET',
+			'accept-encoding': 'gzip,deflate,sdch',
+		#	'url': '/',
+		#	'host': 'btc-e.com',
+		#	'accept-language': 'zh-CN,zh;q=0.8,en-US;q=0.6,en;q=0.4',
+			'user-agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36',
+			'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+			'accept': 'application/json, text/javascript, */*; q=0.01',
+			'referer': 'https://btc-e.com/',
+			'cookie': cookie,
+		#	'version': 'HTTP/1.1',
+		#	'content-length': '25',
+		#	'scheme': 'https',
+		}
 		self.__refresh_web()
 	
 	def __refresh_web(self):
 		conn = httplib.HTTPSConnection('btc-e.com')
-		conn.request('POST', '/', headers=self.headers)
+		conn.request('GET', '/', headers=self.headers)
 		resp = conn.getresponse()
+		resp.read()
+		resp.close()
 
 	def get_m30_k_line(self, pair):
 		conn = httplib.HTTPSConnection('btc-e.com')
+		self.headers['url'] = '/ajax/order'
+		self.headers['method'] = 'GET'
 		conn.request('POST', '/ajax/order', 'act=orders_update&pair='+str(self.pair_id[pair]), self.headers)
 		resp = conn.getresponse()
 		res = resp.read()
+		if not resp.getheader('content-encoding') == 'gzip':
+			print 'content-encoding:', resp.getheader('content-encoding')
+			raise Exception(res)
+
 		res = gzip.GzipFile(fileobj=StringIO.StringIO(res)).read()
+		resp.close()
 		tmp = json.loads(res)
 		ret = tmp['chart_data']
 		for item in ret:

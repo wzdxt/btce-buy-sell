@@ -23,6 +23,8 @@ def exchange_thread(key, secret):
 		except Exception, e:
 			print 'xxx catch exception in auto shell xxx'
 			print e
+			if e.message == 'must be logged':
+				return
 			time.sleep(sleep_time)
 			sleep_time += 3
 
